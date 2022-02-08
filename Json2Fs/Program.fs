@@ -13,4 +13,4 @@ match System.Environment.GetCommandLineArgs() with
     |> (fun contents -> File.WriteAllText(fs, contents))
 | _ -> raise (System.Exception ("Expected three arguments: typename of the root record, path to the json file and destination path"))
 
-
+printfn $"Ok"

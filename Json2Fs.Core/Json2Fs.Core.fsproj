@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="../README.md" Pack="True" PackagePath="" />
+
     <Compile Include="StringBuilder.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>

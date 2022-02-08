@@ -1,0 +1,12 @@
+<Project>
+    <PropertyGroup>
+        <Authors>WhiteBlackGoose</Authors>
+        <Copyright>© WhiteBlackGoose 2022</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageTags>json, fsharp</PackageTags>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/WhiteBlackGoose/Json2Fs</RepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+</Project>

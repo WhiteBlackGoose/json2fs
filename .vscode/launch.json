@@ -20,10 +20,10 @@
             "program": "${workspaceFolder}/Json2Fs/bin/Debug/net6.0/Json2Fs.dll",
             "args": [
                 "Thing",
-                "./test1.json",
-                "./test1.fs"
+                "./tests/test1.json",
+                "./tests/test1.fs"
             ],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/Json2Fs",
             "console": "internalConsole",
             "stopAtEntry": false
         }
