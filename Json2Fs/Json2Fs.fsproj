@@ -6,7 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="StringBuilder.fs" />
+    <ProjectReference Include="../Json2Fs.Core/Json2Fs.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Program.fs" />
   </ItemGroup>
 
