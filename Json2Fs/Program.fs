@@ -1,6 +1,7 @@
 ﻿module Entry
 
 open System
+open System.IO
 open System.Text.Json
 open System.Collections.Generic
 open StringBuilder
@@ -35,13 +36,25 @@ let rec mergeListsOrdered a b eq merge =
 
 type TypeToGenerate = {
     typename : string
-    props : Map<string, string>
+    props : Map<string, string list>
 }
 
 type Types = TypeToGenerate list
 
-let mergeTwoTypes (props1 : Map<string, string>) (props2 : Map<string, string>) =
+let mergeTwoTypes (props1 : Map<string, string list>) (props2 : Map<string, string list>) : Map<string, string list> =
     let keys = Set.union (Set<_>(props1.Keys)) (Set<_>(props2.Keys))
+
+    let rec mergeValues (a : string list) (b : string list) : string list =
+        match a, b with
+        | ["obj"], other | other, ["obj"] -> other
+        | "array" :: other1, "array" :: other2 -> "array" :: mergeValues other1 other2
+        | any, _ -> any
+    
+    let propsToString v =
+        v
+        |> List.rev
+        |> String.concat " "
+
     keys
     |> Seq.map (fun key ->
         if props1.ContainsKey key |> not then
@@ -51,11 +64,7 @@ let mergeTwoTypes (props1 : Map<string, string>) (props2 : Map<string, string>) 
         else
             let value1 = props1[key]
             let value2 = props2[key]
-            let typeName =
-                match value1, value2 with
-                | "obj", other | other, "obj" -> other
-                | _, _ -> ""
-            key, typeName
+            key, mergeValues value1 value2
         )
     |> Map.ofSeq
 
@@ -70,20 +79,23 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
     let capitalize (s : string) =
         System.Char.ToUpper(s[0]).ToString() + s[1..]
 
-    let rec getType (name : string) (value : JsonElement) : (string * Types) =
+    let rec getType (name : string) (value : JsonElement) : (string list * Types) =
         match value.ValueKind with
         | JsonValueKind.Array ->
-            let gened = value.EnumerateArray() |> Seq.map (getType name)
-            let mergedTypes = gened |> Seq.map (fun (_, s) -> s) |> mergeSequenceOfTypeLists
-            let (proptype, _) = gened |> Seq.head
-            (proptype + " array", mergedTypes)
-        | JsonValueKind.False | JsonValueKind.True -> "bool", []
-        | JsonValueKind.Number -> "decimal", []
+            match value.EnumerateArray() |> Seq.tryHead with
+            | Some _ ->
+                let gened = value.EnumerateArray() |> Seq.map (getType name)
+                let mergedTypes = gened |> Seq.map (fun (_, s) -> s) |> mergeSequenceOfTypeLists
+                let (proptype, _) = gened |> Seq.head
+                ("array" :: proptype, mergedTypes)
+            | None -> (["array"; "obj"], [])
+        | JsonValueKind.False | JsonValueKind.True -> ["bool"], []
+        | JsonValueKind.Number -> ["decimal"], []
         | JsonValueKind.Object ->
             let generated = generateFSharpDTOsByJson name value
-            (capitalize name, generated)
-        | JsonValueKind.String -> "string", []
-        | JsonValueKind.Null | JsonValueKind.Undefined -> "obj", []
+            ([capitalize name], generated)
+        | JsonValueKind.String -> ["string"], []
+        | JsonValueKind.Null | JsonValueKind.Undefined -> ["obj"], []
 
     let escape s =
         match s with
@@ -95,7 +107,7 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
 
     let (_, addedTypes, props) = 
         json.EnumerateObject()
-        |> Seq.fold (fun (alreadyAddedProps : Set<string>, addedTypes : TypeToGenerate list, props : Map<string, string>) prop ->
+        |> Seq.fold (fun (alreadyAddedProps : Set<string>, addedTypes : TypeToGenerate list, props : Map<string, string list>) prop ->
             if alreadyAddedProps |> Seq.contains (prop.Name.ToLower()) then
                 (alreadyAddedProps, addedTypes, props)
             else
@@ -113,7 +125,8 @@ let fsRecordsToString (types : TypeToGenerate list) =
         for { props = props; typename = typename } in types |> List.rev do
             $"type {typename} = {{\n"
             for pair in props do
-                $"    {pair.Key} : {pair.Value}\n"
+                let typename = pair.Value |> List.rev |> String.concat " "
+                $"    {pair.Key} : {typename}\n"
             "}\n"
     }
 
@@ -139,7 +152,15 @@ let testJson = """
 }
 """
 
+(*
 testJson
+|> JsonSerializer.Deserialize<JsonElement>
+|> generateFSharpDTOsByJson "Thing"
+|> fsRecordsToString
+|> printfn "%s"*)
+
+"D:/tmp/nyarticles_2022-01.json"
+|> File.ReadAllText
 |> JsonSerializer.Deserialize<JsonElement>
 |> generateFSharpDTOsByJson "Thing"
 |> fsRecordsToString
