@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Json2Fs", "Json2Fs\Json2Fs.fsproj", "{46D27282-E895-4682-9B0A-67D8DA7D1E5E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{46D27282-E895-4682-9B0A-67D8DA7D1E5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46D27282-E895-4682-9B0A-67D8DA7D1E5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46D27282-E895-4682-9B0A-67D8DA7D1E5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46D27282-E895-4682-9B0A-67D8DA7D1E5E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
