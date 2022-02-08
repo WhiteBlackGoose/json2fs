@@ -2,7 +2,10 @@
 
 open System
 open System.Text.Json
-open StringBuilder
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Xml
+open FSharp.Compiler.Text
+open Fantomas
 
 let rec private mergeListsOrdered a b eq merge =
     let rec untilCommon (a : 'a list) (b : 'a list) : ('a * 'a list * 'a list * 'a list * 'a list * int) Option =
@@ -114,17 +117,68 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
     
     { props = props; typename = capitalize typename } :: addedTypes
 
-let fsRecordsToString (types : TypeToGenerate list) =
-    let escape s =
-        match s with
-        | "abstract" | "type" -> $"``{s}``"
-        | _ -> s
+let private zeroRange = Range.Zero
+let private zeroXml = PreXmlDoc.Empty
+let private mkIdent s = Ident(s, zeroRange)
+let private mkSynTypeLongIdent s = SynType.LongIdent(LongIdentWithDots([mkIdent s], []))
 
-    str {
-        for { props = props; typename = typename } in types |> List.rev do
-            $"type {typename} = {{\n"
-            for pair in props do
-                let typename = pair.Value |> List.rev |> String.concat " "
-                $"    {escape pair.Key} : {typename}\n"
-            "}\n"
-    }
+let fsRecordsToString (types: TypeToGenerate list) =
+    let mdls =
+        types
+        |> List.map (fun { typename = name; props = props } ->
+            let recordFields =
+                props
+                |> Map.toList
+                |> List.map (fun (key, value) ->
+                    let typeName =
+                        match value with
+                        | [] -> failwith "unexpected"
+                        | [ single ] -> mkSynTypeLongIdent single
+                        | head :: tail ->
+                            SynType.App(
+                                mkSynTypeLongIdent head,
+                                Some zeroRange,
+                                tail |> List.map mkSynTypeLongIdent,
+                                [],
+                                Some zeroRange,
+                                true,
+                                zeroRange
+                            )
+
+                    SynField([], false, Some(mkIdent key), typeName, false, zeroXml, None, zeroRange))
+
+            SynModuleDecl.Types(
+                [ SynTypeDefn.SynTypeDefn(
+                      SynComponentInfo([], None, [], [ mkIdent name ], zeroXml, false, None, zeroRange),
+                      SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(None, recordFields, zeroRange), zeroRange),
+                      [],
+                      None,
+                      zeroRange
+                  ) ],
+                zeroRange
+            ))
+
+    let file =
+        ParsedInput.ImplFile(
+            ParsedImplFileInput(
+                "tmp.fsx",
+                true,
+                QualifiedNameOfFile(mkIdent "Tmp"),
+                [],
+                [],
+                [ SynModuleOrNamespace(
+                      [],
+                      false,
+                      SynModuleOrNamespaceKind.AnonModule,
+                      mdls,
+                      zeroXml,
+                      [],
+                      None,
+                      zeroRange
+                  ) ],
+                (true, true)
+            )
+        )
+
+    CodeFormatter.FormatASTAsync(file, "tmp.fsx", [], None, FormatConfig.FormatConfig.Default)
+    |> Async.RunSynchronously

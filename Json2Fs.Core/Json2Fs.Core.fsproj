@@ -9,9 +9,11 @@
 
   <ItemGroup>
     <None Include="../README.md" Pack="True" PackagePath="" />
-
-    <Compile Include="StringBuilder.fs" />
     <Compile Include="Library.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fantomas" Version="4.6.3" />
   </ItemGroup>
 
 </Project>
