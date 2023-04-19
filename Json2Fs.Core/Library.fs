@@ -116,6 +116,8 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
     
     { props = props; typename = capitalize typename } :: addedTypes
 
+let formatConfig = {  FormatConfig.Default with RecordMultilineFormatter = MultilineFormatterType.NumberOfItems }
+
 let fsRecordsToString (types: TypeToGenerate list) =
     let recordTypes =
         types
@@ -149,5 +151,5 @@ let fsRecordsToString (types: TypeToGenerate list) =
     }
     
     |> Tree.compile
-    |> CodeFormatter.FormatOakAsync
+    |> fun oak -> CodeFormatter.FormatOakAsync(oak, formatConfig)
     |> Async.RunSynchronously
