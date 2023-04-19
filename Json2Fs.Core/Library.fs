@@ -2,7 +2,10 @@
 
 open System
 open System.Text.Json
-open StringBuilder
+open Fantomas.Core
+open Fantomas.Core.SyntaxOak
+open Fabulous.AST
+open type Fabulous.AST.Ast
 
 let rec private mergeListsOrdered a b eq merge =
     let rec untilCommon (a : 'a list) (b : 'a list) : ('a * 'a list * 'a list * 'a list * 'a list * int) Option =
@@ -72,7 +75,6 @@ let mergeTwoTypeLists (types1 : Types) (types2 : Types) =
 let mergeSequenceOfTypeLists typess =
     Seq.fold mergeTwoTypeLists [] typess
 
-
 let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Types =
     let capitalize (s : string) =
         System.Char.ToUpper(s[0]).ToString() + s[1..]
@@ -114,17 +116,40 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
     
     { props = props; typename = capitalize typename } :: addedTypes
 
-let fsRecordsToString (types : TypeToGenerate list) =
-    let escape s =
-        match s with
-        | "abstract" | "type" -> $"``{s}``"
-        | _ -> s
+let formatConfig = {  FormatConfig.Default with RecordMultilineFormatter = MultilineFormatterType.NumberOfItems }
 
-    str {
-        for { props = props; typename = typename } in types |> List.rev do
-            $"type {typename} = {{\n"
-            for pair in props do
-                let typename = pair.Value |> List.rev |> String.concat " "
-                $"    {escape pair.Key} : {typename}\n"
-            "}\n"
+let fsRecordsToString (types: TypeToGenerate list) =
+    let recordTypes =
+        types
+        |> List.map (fun { typename = name; props = props } ->
+            if Map.isEmpty props then
+                Alias(name, Type.FromString "obj")
+                |> Tree.compile
+                |> TypeDefn.Abbrev
+                |> ModuleDecl.TypeDefn
+            else
+                let rec mkType value =
+                    match value with
+                    | [] -> failwith "unexpected"
+                    | [ single ] -> Type.FromString single
+                    | head :: tail ->
+                        TypeAppPostFixNode(mkType tail, Type.FromString head, FSharp.Compiler.Text.Range.Zero)
+                        |> Type.AppPostfix
+
+                Record(name) {
+                    for KeyValue(key, value) in props do
+                        Field(key, mkType value)
+                }
+                |> Tree.compile
+                |> TypeDefn.Record
+                |> ModuleDecl.TypeDefn
+        )
+
+    Namespace("Json").isRecursive() {
+        for recordType in recordTypes do
+            yield EscapeHatch(recordType)
     }
+    
+    |> Tree.compile
+    |> fun oak -> CodeFormatter.FormatOakAsync(oak, formatConfig)
+    |> Async.RunSynchronously

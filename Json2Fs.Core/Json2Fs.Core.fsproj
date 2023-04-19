@@ -9,9 +9,11 @@
 
   <ItemGroup>
     <None Include="../README.md" Pack="True" PackagePath="" />
-
-    <Compile Include="StringBuilder.fs" />
     <Compile Include="Library.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fabulous.AST" Version="0.4.0" />
   </ItemGroup>
 
 </Project>
