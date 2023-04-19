@@ -2,10 +2,10 @@
 
 open System
 open System.Text.Json
-open FSharp.Compiler.Syntax
-open FSharp.Compiler.Xml
-open FSharp.Compiler.Text
-open Fantomas
+open Fantomas.Core
+open Fantomas.Core.SyntaxOak
+open Fabulous.AST
+open type Fabulous.AST.Ast
 
 let rec private mergeListsOrdered a b eq merge =
     let rec untilCommon (a : 'a list) (b : 'a list) : ('a * 'a list * 'a list * 'a list * 'a list * int) Option =
@@ -75,7 +75,6 @@ let mergeTwoTypeLists (types1 : Types) (types2 : Types) =
 let mergeSequenceOfTypeLists typess =
     Seq.fold mergeTwoTypeLists [] typess
 
-
 let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Types =
     let capitalize (s : string) =
         System.Char.ToUpper(s[0]).ToString() + s[1..]
@@ -117,68 +116,38 @@ let rec generateFSharpDTOsByJson (typename : string) (json : JsonElement) : Type
     
     { props = props; typename = capitalize typename } :: addedTypes
 
-let private zeroRange = Range.Zero
-let private zeroXml = PreXmlDoc.Empty
-let private mkIdent s = Ident(s, zeroRange)
-let private mkSynTypeLongIdent s = SynType.LongIdent(LongIdentWithDots([mkIdent s], []))
-
 let fsRecordsToString (types: TypeToGenerate list) =
-    let mdls =
+    let recordTypes =
         types
         |> List.map (fun { typename = name; props = props } ->
-            let recordFields =
-                props
-                |> Map.toList
-                |> List.map (fun (key, value) ->
-                    let typeName =
-                        match value with
-                        | [] -> failwith "unexpected"
-                        | [ single ] -> mkSynTypeLongIdent single
-                        | head :: tail ->
-                            SynType.App(
-                                mkSynTypeLongIdent head,
-                                Some zeroRange,
-                                tail |> List.map mkSynTypeLongIdent,
-                                [],
-                                Some zeroRange,
-                                true,
-                                zeroRange
-                            )
+            if Map.isEmpty props then
+                Alias(name, Type.FromString "obj")
+                |> Tree.compile
+                |> TypeDefn.Abbrev
+                |> ModuleDecl.TypeDefn
+            else
+                let rec mkType value =
+                    match value with
+                    | [] -> failwith "unexpected"
+                    | [ single ] -> Type.FromString single
+                    | head :: tail ->
+                        TypeAppPostFixNode(mkType tail, Type.FromString head, FSharp.Compiler.Text.Range.Zero)
+                        |> Type.AppPostfix
 
-                    SynField([], false, Some(mkIdent key), typeName, false, zeroXml, None, zeroRange))
-
-            SynModuleDecl.Types(
-                [ SynTypeDefn.SynTypeDefn(
-                      SynComponentInfo([], None, [], [ mkIdent name ], zeroXml, false, None, zeroRange),
-                      SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(None, recordFields, zeroRange), zeroRange),
-                      [],
-                      None,
-                      zeroRange
-                  ) ],
-                zeroRange
-            ))
-
-    let file =
-        ParsedInput.ImplFile(
-            ParsedImplFileInput(
-                "tmp.fsx",
-                true,
-                QualifiedNameOfFile(mkIdent "Tmp"),
-                [],
-                [],
-                [ SynModuleOrNamespace(
-                      [],
-                      false,
-                      SynModuleOrNamespaceKind.AnonModule,
-                      mdls,
-                      zeroXml,
-                      [],
-                      None,
-                      zeroRange
-                  ) ],
-                (true, true)
-            )
+                Record(name) {
+                    for KeyValue(key, value) in props do
+                        Field(key, mkType value)
+                }
+                |> Tree.compile
+                |> TypeDefn.Record
+                |> ModuleDecl.TypeDefn
         )
 
-    CodeFormatter.FormatASTAsync(file, "tmp.fsx", [], None, FormatConfig.FormatConfig.Default)
+    Namespace("Json").isRecursive() {
+        for recordType in recordTypes do
+            yield EscapeHatch(recordType)
+    }
+    
+    |> Tree.compile
+    |> CodeFormatter.FormatOakAsync
     |> Async.RunSynchronously
